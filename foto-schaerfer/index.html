@@ -13,7 +13,7 @@
 }
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font)}
-body{display:flex;flex-direction:column;overflow:hidden}
+body{display:flex;flex-direction:column;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 [hidden]{display:none!important}
@@ -186,7 +186,7 @@ details.help p{font-size:13px;color:var(--soft);margin:8px 0 0}
       <button class="btn primary full" id="runBtn" type="button" disabled>Schärfen</button>
       <div class="row">
         <button class="btn" id="dlBtn" type="button" disabled>Herunterladen</button>
-        <button class="btn" id="allBtn" type="button" disabled title="Alle Fotos mit diesen Einstellungen schärfen und herunterladen">Alle schärfen</button>
+        <button class="btn" id="allBtn" type="button" disabled title="Alle Fotos mit diesen Einstellungen schärfen und speichern">Alle schärfen</button>
       </div>
     </section>
 
@@ -848,7 +848,7 @@ const state = {
   src: null, outCanvas: null, outCtx: null, outData: null, outReady: false, doneKey: null,
   overlay: null, enable: [false, true, true, true, true],
   mode: 'compare', split: 0.5, v: { scale: 1, tx: 0, ty: 0, fit: true },
-  working: false, batch: false, useLocal: false, lastStats: null,
+  working: false, batch: false, useLocal: false, lastStats: null, noDownload: false,
 };
 let pool = null;
 try { pool = new Pool(); if (pool.broken) state.useLocal = true; } catch (e) { state.useLocal = true; }
@@ -1252,7 +1252,8 @@ function updateButtons(){
   els.run.disabled = !has;
   els.run.textContent = dirty ? 'Mit neuen Einstellungen schärfen' : (state.outReady ? 'Erneut schärfen' : 'Schärfen');
   els.run.classList.toggle('pulse', dirty && !state.working);
-  els.dl.disabled = !state.outReady;
+  els.dl.disabled = !state.outReady || !!state.noDownload;
+  els.dl.title = state.noDownload ? 'Speichern ist in dieser Ansicht nicht möglich' : '';
   els.all.textContent = state.photos.length > 1 ? 'Alle schärfen (' + state.photos.length + ')' : 'Alle schärfen';
   els.all.disabled = state.photos.length < 2;
 }
@@ -1285,33 +1286,71 @@ function outFormat(p){
   if (/jpe?g/.test(t) || /\.jpe?g$/i.test(p.name)) return { mime: 'image/jpeg', name: base + '-scharf.jpg' };
   return { mime: 'image/png', name: base + '-scharf.png' };
 }
-function download(){
-  if (!state.outReady || !state.outCanvas) return Promise.resolve(false);
+// Läuft die Seite als Claude-Artefakt, sind normale Downloads gesperrt. Dann wird über
+// Claudes Speichern-Funktion gespeichert (der Betrachter bestätigt jede Datei).
+const inClaude = !!(window.claude && typeof window.claude.use === 'function');
+let dlCapPromise = null;
+function claudeDownloads(){
+  if (!inClaude) return Promise.resolve(null);
+  if (!dlCapPromise) dlCapPromise = Promise.resolve().then(() => window.claude.use('downloads')).catch(() => null);
+  return dlCapPromise;
+}
+if (inClaude) claudeDownloads().then(cap => { if (!cap){ state.noDownload = true; updateButtons(); } });
+
+function encode(){
   const { mime, name } = outFormat(state.cur);
-  return new Promise(res => {
-    state.outCanvas.toBlob(blob => {
-      if (!blob){ showNote('Speichern ist fehlgeschlagen.', 'err', 5000); return res(false); }
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = blob.type === mime ? name : name.replace(/\.[^.]+$/, '.png');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      res(true);
-    }, mime, 0.95);
-  });
+  return new Promise(res => state.outCanvas.toBlob(blob => {
+    if (!blob) return res(null);
+    res({ blob, name: blob.type === mime ? name : name.replace(/\.[^.]+$/, '.png') });
+  }, mime, 0.95));
+}
+// Ergebnis: 'saved' | 'declined' | 'unavailable' | 'error'
+async function download(){
+  if (!state.outReady || !state.outCanvas) return 'error';
+  const file = await encode();
+  if (!file){ showNote('Speichern ist fehlgeschlagen.', 'err', 5000); return 'error'; }
+  if (inClaude){
+    const cap = await claudeDownloads();
+    if (!cap){ showNote('Speichern ist in dieser Ansicht nicht möglich.', 'err', 6000); return 'unavailable'; }
+    for (let tries = 0; ; tries++){
+      try { await cap.save({ filename: file.name, data: file.blob }); return 'saved'; }
+      catch (e){
+        const code = e && e.code;
+        if (code === 'rate_limited' && tries < 5){ await sleep(1500); continue; }
+        if (code === 'declined'){ showNote('Speichern abgebrochen.', '', 3000); return 'declined'; }
+        if (code === 'too_large'){ showNote('Die Datei ist zu gross zum Speichern.', 'err', 6000); return 'error'; }
+        if (code === 'bad_request' || code === 'rejected_extension'){ showNote('Speichern ist fehlgeschlagen.', 'err', 6000); return 'error'; }
+        state.noDownload = true; updateButtons();
+        showNote('Speichern ist in dieser Ansicht nicht möglich.', 'err', 6000);
+        return 'unavailable';
+      }
+    }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file.blob); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  return 'saved';
 }
 async function runAll(){
   const list = state.photos.slice();
   if (!list.length) return;
+  let saved = 0, stopped = false;
   for (let i = 0; i < list.length; i++){
     if (!state.photos.includes(list[i])) continue;
     state.batch = 'Foto ' + (i + 1) + ' von ' + list.length;
     const ok = await selectPhoto(list[i]);
-    if (!ok || !state.batch) break;
-    await download();
+    if (!ok || !state.batch){ stopped = true; break; }
+    if (state.noDownload) continue;
+    const r = await download();
+    if (r === 'saved') saved++;
+    if (r === 'unavailable'){ state.noDownload = true; }
     await sleep(400);
   }
-  const was = state.batch; state.batch = false;
-  if (was) showNote('Alle Fotos wurden geschärft und heruntergeladen.', 'ok', 6000);
+  state.batch = false;
+  if (stopped) return;
+  if (state.noDownload) showNote('Alle Fotos wurden geschärft. Speichern ist in dieser Ansicht nicht möglich.', '', 7000);
+  else showNote('Alle Fotos wurden geschärft' + (saved === list.length ? ' und gespeichert.' : ' (' + saved + ' von ' + list.length + ' gespeichert).'), 'ok', 6000);
 }
 
 /* ---------- Bedienung ---------- */
