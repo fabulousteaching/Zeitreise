@@ -1,6 +1,0 @@
-# Konto-Datei und Login-Zähler gehören nicht ins Repository
-daten/benutzer.php
-daten/login-versuche.json
-# Geschützte Dateien nur auf dem Server ablegen
-daten/dateien/*
-!daten/dateien/.gitkeep

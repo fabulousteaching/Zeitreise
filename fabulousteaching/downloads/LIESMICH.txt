@@ -1,2 +1,0 @@
-Öffentliche Downloads (PDF, Word …) hier ablegen.
-In daten/materialien.php beim Material eintragen: 'datei' => 'dateiname.pdf'
