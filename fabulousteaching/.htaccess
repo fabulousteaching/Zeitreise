@@ -1,0 +1,25 @@
+# fabulousteaching.ch – Einstellungen für den Webserver (Apache bei Infomaniak)
+
+DirectoryIndex index.php index.html
+Options -Indexes
+
+# Keine Ordnerinhalte von inc/ und daten/ ausliefern (zusätzlich zu deren eigener .htaccess)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(inc|daten)(/|$) - [F,L]
+  RewriteRule (^|/)\.git - [F,L]
+</IfModule>
+
+# Schriften, Bilder, CSS und JS dürfen im Browser zwischengespeichert werden
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/svg+xml "access plus 1 month"
+  ExpiresByType text/css "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+AddType font/woff2 .woff2
