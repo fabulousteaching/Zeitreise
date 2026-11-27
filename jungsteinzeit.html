@@ -4165,7 +4165,7 @@ function bmZoomAt(f, sx, sy){ const [mx, my] = bmToMap(sx, sy); BM.zoom *= f; bm
 /* Freier Platz vor einer Station: nicht in einer Wand, nicht im tiefen Wasser, mit freier Sicht auf die Station */
 function segCross(ax, az, bx, bz, cx, cz, dx, dz){ const d1 = (bx - ax)*(cz - az) - (bz - az)*(cx - ax), d2 = (bx - ax)*(dz - az) - (bz - az)*(dx - ax), d3 = (dx - cx)*(az - cz) - (dz - cz)*(ax - cx), d4 = (dx - cx)*(bz - cz) - (dz - cz)*(bx - cx); return d1*d2 < 0 && d3*d4 < 0; }
 /* Feste Standorte nach dem Sprung von der Karte: von hier sieht man die Station gut (einzeln am Bild geprüft) */
-const STANDS = { brennen:[24.3, 7.8], ernte:[-31.2, -20.9], familie:[-1.7, 6.1], hausbau:[4.6, -23.9], hund:[-18.7, 20], mahlen:[-1.8, -2.9], schafe:[-19.2, 17.5], vorrat:[28.3, -23.2], roden:[-34.9, 23.7], saat:[1.7, -41.5] };
+const STANDS = { brennen:[24.3, 7.8], ernte:[-31.2, -20.9], familie:[-1.7, 6.1], hausbau:[4.6, -23.9], hund:[-18.7, 20], mahlen:[-1.8, -2.9], schafe:[-19.2, 17.5], vorrat:[28.3, -23.2], roden:[-42.6, 27.65], saat:[1.7, -41.5] };
 function standSpot(h){
   if (h.stand) return h.stand.slice();   /* fester Standort mit guter Sicht (Tabelle STANDS) */
   if (STANDS[h.id]) return STANDS[h.id].slice();
