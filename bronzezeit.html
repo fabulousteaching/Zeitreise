@@ -4000,7 +4000,18 @@ function speechParts(plain){
   if (a < plain.length) parts.push(plain.slice(a).trim());
   return parts.filter(Boolean);
 }
-function stopSpeech(){ speechRun++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+function stopSpeech(){ speechRun++; if (tonAudio){ try { tonAudio.pause(); } catch(e){} tonAudio = null; }
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+/* Vorlesen mit der aufgenommenen Stimme: eine Tondatei je Station in ton/bronzezeit/. Fehlt sie oder lädt sie nicht, liest die Stimme des Geräts. */
+const TON = 'ton/bronzezeit/'; let tonAudio = null;
+function readStation(id, text){
+  if (speaking){ stopSpeech(); return; }
+  const run = ++speechRun, a = new Audio(TON + id + '.mp3'); tonAudio = a; speaking = true; $('#btnRead').textContent = '⏹ Stopp';
+  const device = () => { if (run !== speechRun) return; tonAudio = null; speaking = false; speak(text); };
+  a.onended = () => { if (run === speechRun){ tonAudio = null; speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; } };
+  a.onerror = device;
+  const p = a.play(); if (p && p.catch) p.catch(device);
+}
 function speak(text){
   if (!window.speechSynthesis){ toast('Vorlesen geht auf diesem Gerät leider nicht.'); return; }
   if (speaking){ stopSpeech(); return; }
@@ -4283,7 +4294,7 @@ function openStation(id){
   $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   showVideo(st);
-  $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
+  $('#btnRead').onclick = () => readStation(id, st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
   const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
   if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
     art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
@@ -4660,7 +4671,11 @@ function bmPos(e){ const r = BM.cv.getBoundingClientRect(); return [(e.clientX -
 function bmZoomAt(f, sx, sy){ const [mx, my] = bmToMap(sx, sy); BM.zoom *= f; bmClamp(); const [nx, ny] = bmToMap(sx, sy); BM.cx += mx - nx; BM.cz += my - ny; bmClamp(); renderBigMap(); }
 /* Freier Platz vor einer Station: nicht in einer Wand, nicht im tiefen Wasser, mit freier Sicht auf die Station */
 function segCross(ax, az, bx, bz, cx, cz, dx, dz){ const d1 = (bx - ax)*(cz - az) - (bz - az)*(cx - ax), d2 = (bx - ax)*(dz - az) - (bz - az)*(dx - ax), d3 = (dx - cx)*(az - cz) - (dz - cz)*(ax - cx), d4 = (dx - cx)*(bz - cz) - (dz - cz)*(bx - cx); return d1*d2 < 0 && d3*d4 < 0; }
+/* Feste Standorte nach dem Sprung von der Karte: von hier sieht man die Station gut (einzeln am Bild geprüft) */
+const STANDS = { graeber:[30.4, 22.6], kaese:[-6.7, 0.8], palisade:[-25.8, -5.9] };
 function standSpot(h){
+  if (h.stand) return h.stand.slice();   /* fester Standort mit guter Sicht (Tabelle STANDS) */
+  if (STANDS[h.id]) return STANDS[h.id].slice();
   const RW = typeof WORLD_R !== 'undefined' ? WORLD_R : 54, a0 = Math.atan2(player.x - h.x, player.z - h.z), list = [];
   for (const [ring, dist] of [[0, 3.4], [1, 4.6], [2, 2.6], [3, 6], [4, 8]]) for (let k=0;k<24;k++){ const a = k/24*TAU; let da = Math.abs(((a - a0) % TAU + TAU + Math.PI) % TAU - Math.PI); list.push({ x:h.x + Math.sin(a)*dist, z:h.z + Math.cos(a)*dist, sc:ring*10 + da }); }
   list.sort((p, q) => p.sc - q.sc);
@@ -4672,12 +4687,15 @@ function standSpot(h){
     return [c.x, c.z]; }
   return [h.x + 3, h.z];
 }
+/* Blick nach dem Sprung: leicht nach unten; bei hohen Bauwerken (Zeichen weit über dem Kopf) nach oben */
+function lookUp(h, x, z){ let f = groundH(x, z); if (typeof onDeck === 'function'){ const d = onDeck(x, z); if (d !== null && d !== undefined) f = Math.max(f, d); }
+  return Math.max(-0.08, Math.min(0.42, Math.atan2(h.baseY - 4.2 - f, Math.hypot(x - h.x, z - h.z)))); }
 let traveling = false;
 function travelTo(id){
   if (traveling) return; const h = hotspots[id]; if (!h) return; traveling = true;
   closeModal(); const fd = $('#fade'); fd.classList.add('on'); keys = {};
   setTimeout(() => {
-    const [x, z] = standSpot(h); player.x = x; player.z = z; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = -0.08; player.camY = 0;
+    const [x, z] = standSpot(h); player.x = x; player.z = z; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = lookUp(h, x, z); player.camY = 0;
     if (typeof trans !== 'undefined') trans = null;
     setTimeout(() => { fd.classList.remove('on'); traveling = false; toast('📍 ' + (visited.has(id) ? BY_ID[id].title : 'Hier gibt es etwas zu entdecken!')); }, 260);
   }, 400);
