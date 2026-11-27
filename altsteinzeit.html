@@ -94,14 +94,18 @@ kbd{font-family:var(--font-head);font-weight:600;min-width:2em;text-align:center
 .new-badge{display:inline-block;margin-top:14px;font-family:var(--font-head);font-weight:600;color:#2b2118;background:var(--ochre);
   padding:.25em .8em;border-radius:6px;border:2px solid var(--charcoal);transform:rotate(-2deg)}
 .info-text{font-size:1.16rem;line-height:1.65;margin-top:14px}
-.info-art{margin:14px auto 2px;border-radius:8px;overflow:hidden;border:2px solid var(--line);background:#fbf6ea;display:flex;justify-content:center;align-items:center;height:clamp(150px,30vh,210px)}
-.info-art img,.info-art svg{display:block;max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
-.info-art img{padding:8px}
+.info-art{position:relative;margin:14px auto 2px;border-radius:8px;overflow:hidden;border:2px solid var(--line);background:#fbf6ea;display:flex;justify-content:center;align-items:center;height:clamp(150px,30vh,210px);-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-art::after{content:"";position:absolute;inset:0}
+.info-art svg{display:block;max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
+.info-art .art-img{width:100%;height:100%;padding:8px;box-sizing:border-box;background:center/contain no-repeat content-box}
 #gameCanvas{width:100%;height:auto;display:block;border-radius:6px;background:#2a1d14;touch-action:none;cursor:ew-resize;margin-top:10px}
 .heat{height:16px;border-radius:8px;background:var(--paper-2);border:1px solid var(--line);overflow:hidden;margin:12px 0 6px}
 .heat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e4a428,#e0562a)}
 .game-msg{font-size:1.08rem;line-height:1.5;min-height:3.2em;margin:6px 0 0}
 .info-text p{margin:0 0 .75em;max-width:62ch}
+.info-text{display:flow-root}
+.info-text .clip{display:block;float:right;clear:both;margin:.3em 0 .5em 16px;background:center/contain no-repeat;border-radius:6px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-text .clip.l{float:left;margin:.3em 16px .5em 0}
 .fact{background:var(--fact);border-left:6px solid var(--fact-line);padding:12px 16px;border-radius:4px;font-size:1.08rem;line-height:1.55}
 .fact-h{font-family:var(--font-head);font-weight:600;margin-bottom:2px}
 .cat-fluss{--cat:#2f6f8a} .cat-jagd{--cat:var(--c-jagd)} .cat-wohnen{--cat:var(--c-wohnen)} .cat-werke{--cat:var(--c-werke)}
@@ -2290,7 +2294,9 @@ function buildMist(){
     const inBay = i < n*0.3, z0 = inBay ? BAY.z + R(-5,5) : R(-80, 70), sz = R(9, 20), ph = R(0,1), sp = R(0.006, 0.014), h0 = R(0.4, 1.3);
     anims.push(t => { const k = (t*sp + ph) % 1, z = z0 + (k - 0.5)*26;
       const x = inBay ? BAY.x + Math.sin(t*0.05 + ph*6)*2.5 : riverX(z) + Math.sin(t*0.07 + ph*9)*3;
-      s.position.set(x, RIVER_Y + h0 + Math.sin(k*Math.PI)*0.5, z); s.scale.set(sz*1.7, sz*0.42, 1); m.opacity = Math.sin(k*Math.PI)*0.2; });
+      s.position.set(x, RIVER_Y + h0 + Math.sin(k*Math.PI)*0.5, z); s.scale.set(sz*1.7, sz*0.42, 1);
+      /* aus der Nähe dünner: wer im Fluss steht, soll nicht im Weissen stehen */
+      const dc = Math.hypot(camera.position.x - x, camera.position.z - z); m.opacity = Math.sin(k*Math.PI)*0.16*Math.min(1, Math.max(0.12, (dc - 5)/14)); });
   }
 }
 
@@ -3561,16 +3567,63 @@ function playFlute(){ const a = audio(); if (!a) return; let t = a.currentTime +
     g.connect(master); [o,o2,lfo].forEach(n => { n.start(t); n.stop(t+d+0.02); }); t += d; });
   flutePlaying = 1; clearTimeout(playFlute.tm); playFlute.tm = setTimeout(() => { flutePlaying = 0; }, (t - a.currentTime)*1000);
 }
-let speaking = false;
-function stopSpeech(){ try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+/* ---- Vorlesen: die angenehmste deutsche Stimme des Geräts, Satz für Satz mit kleinen Pausen ---- */
+let speaking = false, speechRun = 0;
+/* Stimmen des Geräts bewerten: natürliche Stimmen (Edge «Natural», Apple «Premium», Google) vor den alten Roboterstimmen */
+function germanVoice(){
+  let vs = []; try { vs = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang)); } catch(e){}
+  const score = v => { const n = v.name || ''; let s = 0;
+    if (/natural|neural/i.test(n)) s += 60;
+    if (/premium|enhanced|erweitert|siri/i.test(n)) s += 45;
+    if (/google/i.test(n)) s += 35;
+    if (/eddy|flo\b|grandma|grandpa|gro(ss|ß)(mutter|vater)|reed|rocko|sandy|shelley|espeak|compact/i.test(n)) s -= 60;
+    if (/^de[-_]ch/i.test(v.lang)) s += 6; else if (/^de[-_]de/i.test(v.lang)) s += 4;
+    if (/katja|seraphina|leni|anna|petra|helena|amala/i.test(n)) s += 3;
+    return s; };
+  return vs.sort((a, b) => score(b) - score(a))[0] || null;
+}
+try { if (window.speechSynthesis) speechSynthesis.getVoices(); } catch(e){}
+/* Text fürs Ohr: ohne Auszeichnung; Wörter wie «Strasse» und «gross» mit ß, sonst sprechen die Stimmen sie mit kurzem Vokal; Zahlen und Zeichen ausgeschrieben */
+function forSpeech(text){
+  return text.replace(/<[^>]+>/g, '').replace(/[«»]/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, ' und ')
+    .replace(/([Gg]r[oö]|[Ss]tr[aä]|[Ff][uü]|[Gg]efä|[Gg]esä|[Ss]t[oö]|[Bb]l[oö]|[Ss]ü|[Ss]p[aä]|[Gg]r[uü]|[Hh]ei|[Ff]lei|[LlGgHhTtPpNn]ie)ss/g, '$1ß')
+    .replace(/([Aa]u)ssen(?!d)/g, '$1ßen').replace(/\b([Aa]u)sser/g, '$1ßer').replace(/([Ää]u)sser/g, '$1ßer')
+    .replace(/\b([Ww]ei)ss(e[mnrs]?|t)?\b/g, '$1ß$2').replace(/([Rr]ei)ss(en|t\b|fest)/g, '$1ß$2').replace(/([Mm]ei)ssel/g, '$1ßel')
+    .replace(/mässig/g, 'mäßig').replace(/ermassen\b/g, 'ermaßen').replace(/\b([Aa])ss(en)?\b/g, '$1ß$2').replace(/\b((?:[Bb]e)?[Ss]a)ss(en)?\b/g, '$1ß$2')
+    .replace(/(\d)['’ ](\d{3})(?!\d)/g, '$1$2').replace(/(\d)\.(\d)/g, '$1,$2').replace(/(\d) m\b/g, '$1 Meter').replace(/(\d) km\b/g, '$1 Kilometer').replace(/(\d) cm\b/g, '$1 Zentimeter').replace(/(\d) kg\b/g, '$1 Kilogramm')
+    .replace(/\s*[−–]\s*(?=\d)/g, ' minus ').replace(/\s*\+\s*/g, ' plus ').replace(/\s*=\s*/g, ' gleich ').replace(/\s+/g, ' ').trim();
+}
+/* In Sätze teilen (nicht nach Zahlen wie «19. Jahrhundert»): so entstehen ruhige Pausen, und lange Texte brechen nicht mittendrin ab */
+function speechParts(plain){
+  const parts = []; let a = 0; const re = /[.!?…]+["”)]*\s+(?=[A-ZÄÖÜ])/g; let m;
+  while ((m = re.exec(plain))){ if (/\d$/.test(plain.slice(0, m.index))) continue; parts.push(plain.slice(a, m.index + m[0].length).trim()); a = m.index + m[0].length; }
+  if (a < plain.length) parts.push(plain.slice(a).trim());
+  return parts.filter(Boolean);
+}
+function stopSpeech(){ speechRun++; if (tonAudio){ try { tonAudio.pause(); } catch(e){} tonAudio = null; }
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+/* Vorlesen mit der aufgenommenen Stimme: eine Tondatei je Station in ton/altsteinzeit/. Fehlt sie oder lädt sie nicht, liest die Stimme des Geräts. */
+const TON = 'ton/altsteinzeit/'; let tonAudio = null;
+function readStation(id, text){
+  if (speaking){ stopSpeech(); return; }
+  const run = ++speechRun, a = new Audio(TON + id + '.mp3'); tonAudio = a; speaking = true; $('#btnRead').textContent = '⏹ Stopp';
+  const device = () => { if (run !== speechRun) return; tonAudio = null; speaking = false; speak(text); };
+  a.onended = () => { if (run === speechRun){ tonAudio = null; speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; } };
+  a.onerror = device;
+  const p = a.play(); if (p && p.catch) p.catch(device);
+}
 function speak(text){
   if (!window.speechSynthesis){ toast('Vorlesen geht auf diesem Gerät leider nicht.'); return; }
   if (speaking){ stopSpeech(); return; }
-  const u = new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g,'').replace(/[«»]/g,''));
-  u.lang = 'de-CH'; u.rate = 0.92;
-  const v = speechSynthesis.getVoices().find(v => /^de/i.test(v.lang)); if (v) u.voice = v;
-  u.onend = u.onerror = () => { speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; };
-  speechSynthesis.cancel(); speechSynthesis.speak(u); speaking = true; $('#btnRead').textContent = '⏹ Stopp';
+  const parts = speechParts(forSpeech(text)), v = germanVoice(), soft = !!v && /natural|neural|premium|enhanced|erweitert|siri|google/i.test(v.name), run = ++speechRun;
+  const done = () => { if (run === speechRun){ speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; } };
+  speechSynthesis.cancel();
+  parts.forEach((p, i) => { const u = new SpeechSynthesisUtterance(p);
+    u.lang = v ? v.lang : 'de-DE'; if (v) u.voice = v; u.rate = soft ? 0.96 : 0.9; u.pitch = soft ? 1 : 0.94; u.volume = 0.9;
+    if (i === parts.length - 1) u.onend = done;
+    u.onerror = e => { if (e.error !== 'interrupted' && e.error !== 'canceled') done(); };
+    speechSynthesis.speak(u); });
+  speaking = true; $('#btnRead').textContent = '⏹ Stopp';
 }
 
 /* ===================== UI ===================== */
@@ -3789,17 +3842,50 @@ function closeModal(silent){
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal()));
 document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m && m.id !== 'start') closeModal(); }));
 
+/* ---- Bilder im Text: je Station [Datei, Absatz, Seite, Breite, Seitenverhältnis]. Die Bilder liegen verpackt in bilder/c und werden erst beim Öffnen einer Karte geholt ---- */
+const CLIPS = {
+  aelteste:[['z1-feuer',0,'r',170,1.015],['z1-kleidung-2',2,'l',110,0.515]],
+  haut:[['z1-kleidung-1',0,'r',110,0.428]],
+  jaeger:[['z1-kleidung-2',0,'r',110,0.515]],
+  hoehle:[['z1-hoehlenmalerei',1,'r',230,1.291]],
+  zelt:[['z1-behausung',1,'r',170,1.23]],
+  feuer:[['z1-feuer',0,'r',170,1.015]],
+  steinwerkzeug:[['z1-axt',2,'r',170,0.905]],
+  naehen:[['z1-kleidung-1',0,'r',110,0.428]],
+  malerei:[['z1-hoehlenmalerei',0,'r',230,1.291]],
+  uferfeuer:[['z1-feuer',0,'r',170,1.015]]
+};
+const CLIP_KEY = [90, 101, 105, 116, 114, 101, 105, 115, 101, 45, 76, 101, 114, 110, 119, 101, 108, 116], CLIP_URL = {};
+function clipURL(name){
+  if (!CLIP_URL[name]) CLIP_URL[name] = new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', 'bilder/c/' + name + '.dat'); x.responseType = 'arraybuffer';
+    x.onload = () => { const b = new Uint8Array(x.response || 0); if ((x.status && x.status !== 200) || !b.length){ rej(); return; }
+      for (let i = 0; i < b.length; i++) b[i] ^= CLIP_KEY[i % CLIP_KEY.length]; res(URL.createObjectURL(new Blob([b], { type:'image/webp' }))); };
+    x.onerror = rej; x.send(); });
+  return CLIP_URL[name];
+}
+function clipHTML(c){ return '<span class="clip ' + c[2] + '" data-c="' + c[0] + '" data-a="' + c[4] + '" aria-hidden="true" style="width:min(' + c[3] + 'px,' + (c[3] > 200 ? 46 : c[4] >= 0.8 ? 38 : 30) + '%);aspect-ratio:' + c[4] + '"></span>'; }
+function showClips(){
+  const old = !(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+  document.querySelectorAll('#infoText .clip').forEach(el => { const name = el.dataset.c;
+    clipURL(name).then(u => { el.style.backgroundImage = 'url("' + u + '")'; }, () => { delete CLIP_URL[name]; el.remove(); });
+    if (old) requestAnimationFrame(() => { el.style.height = (el.offsetWidth/(+el.dataset.a || 1)) + 'px'; }); });
+}
+for (const ev of ['contextmenu', 'dragstart']) $('#infoText').addEventListener(ev, e => { if (e.target.closest && e.target.closest('.clip')) e.preventDefault(); });
+/* Bilder der Infokarten lassen sich nicht mit Rechtsklick speichern, herausziehen oder (am Tablet) lange antippen */
+for (const ev of ['contextmenu', 'dragstart', 'selectstart', 'copy']) $('#infoArt').addEventListener(ev, e => e.preventDefault());
 function openStation(id){
   const st = BY_ID[id]; const isNew = !visited.has(id);
   if (isNew){ visited.add(id); saveVisited(); updateProgress(); chime(); }
   const card = $('#infoCard'); card.className = 'card cat-' + st.cat;
   $('#infoIcon').textContent = st.icon; $('#infoCat').textContent = CATS[st.cat].name; $('#infoTitle').textContent = st.title;
-  $('#infoText').innerHTML = st.text.map(p => '<p>' + p + '</p>').join('');
+  const clips = CLIPS[id] || [];
+  $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   $('#btnFlute').classList.toggle('hidden', id !== 'floete');
-  $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
-  const art = $('#infoArt'), ca = typeof CLIPART !== 'undefined' ? CLIPART[id] : null;
-  if (ca){ art.innerHTML = typeof ca === 'function' ? ca() : '<img src="' + ca + '" alt="">'; art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
+  $('#btnRead').onclick = () => readStation(id, st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
+  const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
+  if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
+    art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
   $('#btnTry').classList.toggle('hidden', id !== 'feuerbogen');
   openModal('info');
 }
@@ -4119,7 +4205,11 @@ function bmPos(e){ const r = BM.cv.getBoundingClientRect(); return [(e.clientX -
 function bmZoomAt(f, sx, sy){ const [mx, my] = bmToMap(sx, sy); BM.zoom *= f; bmClamp(); const [nx, ny] = bmToMap(sx, sy); BM.cx += mx - nx; BM.cz += my - ny; bmClamp(); renderBigMap(); }
 /* Freier Platz vor einer Station: nicht in einer Wand, nicht im tiefen Wasser, mit freier Sicht auf die Station */
 function segCross(ax, az, bx, bz, cx, cz, dx, dz){ const d1 = (bx - ax)*(cz - az) - (bz - az)*(cx - ax), d2 = (bx - ax)*(dz - az) - (bz - az)*(dx - ax), d3 = (dx - cx)*(az - cz) - (dz - cz)*(ax - cx), d4 = (dx - cx)*(bz - cz) - (dz - cz)*(bx - cx); return d1*d2 < 0 && d3*d4 < 0; }
+/* Feste Standorte nach dem Sprung von der Karte: von hier sieht man die Station gut (einzeln am Bild geprüft) */
+const STANDS = { mammut:[-27.1, 32.5], nomaden:[10.4, 40.8], uferzelt:[22.8, 18.4], zelt:[0.2, -2.5] };
 function standSpot(h){
+  if (h.stand) return h.stand.slice();   /* fester Standort mit guter Sicht (Tabelle STANDS) */
+  if (STANDS[h.id]) return STANDS[h.id].slice();
   const RW = typeof WORLD_R !== 'undefined' ? WORLD_R : 54, a0 = Math.atan2(player.x - h.x, player.z - h.z), list = [];
   for (const [ring, dist] of [[0, 3.4], [1, 4.6], [2, 2.6], [3, 6], [4, 8]]) for (let k=0;k<24;k++){ const a = k/24*TAU; let da = Math.abs(((a - a0) % TAU + TAU + Math.PI) % TAU - Math.PI); list.push({ x:h.x + Math.sin(a)*dist, z:h.z + Math.cos(a)*dist, sc:ring*10 + da }); }
   list.sort((p, q) => p.sc - q.sc);
@@ -4131,12 +4221,15 @@ function standSpot(h){
     return [c.x, c.z]; }
   return [h.x + 3, h.z];
 }
+/* Blick nach dem Sprung: leicht nach unten; bei hohen Bauwerken (Zeichen weit über dem Kopf) nach oben */
+function lookUp(h, x, z){ let f = groundH(x, z); if (typeof onDeck === 'function'){ const d = onDeck(x, z); if (d !== null && d !== undefined) f = Math.max(f, d); }
+  return Math.max(-0.08, Math.min(0.42, Math.atan2(h.baseY - 4.2 - f, Math.hypot(x - h.x, z - h.z)))); }
 let traveling = false;
 function travelTo(id){
   if (traveling) return; const h = hotspots[id]; if (!h) return; traveling = true;
   closeModal(); const fd = $('#fade'); fd.classList.add('on'); keys = {};
   setTimeout(() => {
-    const [x, z] = standSpot(h); player.x = x; player.z = z; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = -0.08; player.camY = 0;
+    const [x, z] = standSpot(h); player.x = x; player.z = z; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = lookUp(h, x, z); player.camY = 0;
     if (typeof trans !== 'undefined') trans = null;
     setTimeout(() => { fd.classList.remove('on'); traveling = false; toast('📍 ' + (visited.has(id) ? BY_ID[id].title : 'Hier gibt es etwas zu entdecken!')); }, 260);
   }, 400);

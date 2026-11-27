@@ -94,14 +94,18 @@ kbd{font-family:var(--font-head);font-weight:600;min-width:2em;text-align:center
 .new-badge{display:inline-block;margin-top:14px;font-family:var(--font-head);font-weight:600;color:#2b2118;background:var(--ochre);
   padding:.25em .8em;border-radius:6px;border:2px solid var(--charcoal);transform:rotate(-2deg)}
 .info-text{font-size:1.16rem;line-height:1.65;margin-top:14px}
-.info-art{margin:14px auto 2px;border-radius:8px;overflow:hidden;border:2px solid var(--line);background:#fbf6ea;display:flex;justify-content:center;align-items:center;height:clamp(150px,30vh,210px)}
-.info-art img,.info-art svg{display:block;max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
-.info-art img{padding:8px}
+.info-art{position:relative;margin:14px auto 2px;border-radius:8px;overflow:hidden;border:2px solid var(--line);background:#fbf6ea;display:flex;justify-content:center;align-items:center;height:clamp(150px,30vh,210px);-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-art::after{content:"";position:absolute;inset:0}
+.info-art svg{display:block;max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
+.info-art .art-img{width:100%;height:100%;padding:8px;box-sizing:border-box;background:center/contain no-repeat content-box}
 #gameCanvas{width:100%;height:auto;display:block;border-radius:6px;background:#8ec8ec;touch-action:none;cursor:pointer;margin-top:10px}
 .heat{height:16px;border-radius:8px;background:var(--paper-2);border:1px solid var(--line);overflow:hidden;margin:12px 0 6px}
 .heat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c040,#a8242a)}
 .game-msg{font-size:1.08rem;line-height:1.5;min-height:4.6em;margin:6px 0 0}
 .info-text p{margin:0 0 .75em;max-width:62ch}
+.info-text{display:flow-root}
+.info-text .clip{display:block;float:right;clear:both;margin:.3em 0 .5em 16px;background:center/contain no-repeat;border-radius:6px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-text .clip.l{float:left;margin:.3em 16px .5em 0}
 .fact{background:var(--fact);border-left:6px solid var(--fact-line);padding:12px 16px;border-radius:4px;font-size:1.08rem;line-height:1.55}
 .fact-h{font-family:var(--font-head);font-weight:600;margin-bottom:2px}
 .info-video{margin:2px 0 16px}
@@ -1500,14 +1504,14 @@ function groundH(x,z){
 const P = {
   staende:[7.0, 80.0], koenig:[-33.7, -57.4], klerus:[54.2, -57.0], muenster:[69.0, -55.0], adel:[42, 38.6],
   dorf:[-45.6, 46.2], abgaben:[-36.4, 39.4], frondienst:[-25.5, 13.5], feld:[-64, 72.5], essen:[-35.2, 55.6], bauernhaus:[-62.4, 51.8],
-  stadt:[50.5, -3.0], markt:[44.2, -38.4], rathaus:[41.0, -49.4], pranger:[55.2, -38.6], handwerk:[46.2, -24.6], weberin:[49.5, -29.6], hygiene:[26.6, -50.0], pest:[90.4, -40.6], pestarzt:[64.0, -63.4],
+  stadt:[50.5, -3.0], markt:[44.2, -38.4], rathaus:[41.0, -49.4], pranger:[57.4, -40.6], handwerk:[46.2, -24.6], weberin:[49.5, -29.6], hygiene:[26.6, -50.0], pest:[90.4, -40.6], pestarzt:[64.0, -63.4],
   burg:[-52, -8], zugbruecke:[-34.2, -13.4], torturm:[-37, -22.8], wehrgang:[-65.7, -34.4], wachtturm:[-49, -23], bergfried:[-63.5, -59], palas:[-36.4, -54.6], kueche:[-36.5, -55.6], kemenate:[-37.2, -53.6], abort:[-25, -58.1],
   kapelle:[-47.5, -52], stall:[-54.6, -56.4], garten:[-55.2, -50.6], brunnen:[-48, -43], burghof:[-30.6, -39.4], gaukler:[-41.8, -35.4],
   ritter:[47.2, 54.0], page:[69.4, 52.6], knappe:[31.0, 54.0], schwertleite:[19.6, 53.6], turnier:[15.4, 42.6], tjost:[36.0, 50.2], motte:[-75.4, 12.8]
 };
 const START = { x:0, z:98, yaw:0 };
 /* Feste Standplätze beim Sprung von der Karte, wo der Blick sonst verdeckt wäre */
-const STANDS = { handwerk:[49.3, -23.8], muenster:[65.8, -55.0], markt:[47.6, -36.2], ritter:[43.6, 54.4], pest:[92.0, -37.0], abgaben:[-39.0, 43.2], turnier:[19.6, 42.4],
+const STANDS = { adel:[41.3, 40.7], burg:[-45.8, -12.9], page:[69.4, 58.6], tjost:[43.9, 56.8], pranger:[52.2, -39.0], handwerk:[49.3, -23.8], muenster:[65.8, -55.0], markt:[47.6, -36.2], ritter:[43.6, 54.4], pest:[92.0, -37.0], abgaben:[-39.0, 43.2], turnier:[19.6, 42.4],
   // in der Burg, teils in oberen Stockwerken: [x, z, Fusshöhe]
   torturm:[-35.4, -24.6, 6.0], wehrgang:[-65.7, -38, 8.0], wachtturm:[-50.8, -24.4, 1.04], bergfried:[-63.5, -56.6, 8.0], palas:[-34.6, -50.6, 5.4], koenig:[-33.7, -54, 5.4],
   kemenate:[-35.4, -51.2, 9.8], abort:[-29.1, -58.1, 9.8], zugbruecke:[-30.5, -9], kueche:[-35.2, -50.4, 1.0], kapelle:[-49, -52, 1.05], stall:[-54.6, -53.6], garten:[-55.1, -46.8], brunnen:[-48, -39.4], burghof:[-33.8, -39] };
@@ -6139,16 +6143,63 @@ function audio(){ try { if (!actx) actx = new (window.AudioContext || window.web
 function chime(){ const a = audio(); if (!a) return; const t0 = a.currentTime;
   [[659.25,0],[987.77,0.11]].forEach(([f,d]) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.value = f;
     g.gain.setValueAtTime(0, t0+d); g.gain.linearRampToValueAtTime(0.18, t0+d+0.02); g.gain.exponentialRampToValueAtTime(0.001, t0+d+0.5); o.connect(g).connect(a.destination); o.start(t0+d); o.stop(t0+d+0.55); }); }
-let speaking = false;
-function stopSpeech(){ try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+/* ---- Vorlesen: die angenehmste deutsche Stimme des Geräts, Satz für Satz mit kleinen Pausen ---- */
+let speaking = false, speechRun = 0;
+/* Stimmen des Geräts bewerten: natürliche Stimmen (Edge «Natural», Apple «Premium», Google) vor den alten Roboterstimmen */
+function germanVoice(){
+  let vs = []; try { vs = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang)); } catch(e){}
+  const score = v => { const n = v.name || ''; let s = 0;
+    if (/natural|neural/i.test(n)) s += 60;
+    if (/premium|enhanced|erweitert|siri/i.test(n)) s += 45;
+    if (/google/i.test(n)) s += 35;
+    if (/eddy|flo\b|grandma|grandpa|gro(ss|ß)(mutter|vater)|reed|rocko|sandy|shelley|espeak|compact/i.test(n)) s -= 60;
+    if (/^de[-_]ch/i.test(v.lang)) s += 6; else if (/^de[-_]de/i.test(v.lang)) s += 4;
+    if (/katja|seraphina|leni|anna|petra|helena|amala/i.test(n)) s += 3;
+    return s; };
+  return vs.sort((a, b) => score(b) - score(a))[0] || null;
+}
+try { if (window.speechSynthesis) speechSynthesis.getVoices(); } catch(e){}
+/* Text fürs Ohr: ohne Auszeichnung; Wörter wie «Strasse» und «gross» mit ß, sonst sprechen die Stimmen sie mit kurzem Vokal; Zahlen und Zeichen ausgeschrieben */
+function forSpeech(text){
+  return text.replace(/<[^>]+>/g, '').replace(/[«»]/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, ' und ')
+    .replace(/([Gg]r[oö]|[Ss]tr[aä]|[Ff][uü]|[Gg]efä|[Gg]esä|[Ss]t[oö]|[Bb]l[oö]|[Ss]ü|[Ss]p[aä]|[Gg]r[uü]|[Hh]ei|[Ff]lei|[LlGgHhTtPpNn]ie)ss/g, '$1ß')
+    .replace(/([Aa]u)ssen(?!d)/g, '$1ßen').replace(/\b([Aa]u)sser/g, '$1ßer').replace(/([Ää]u)sser/g, '$1ßer')
+    .replace(/\b([Ww]ei)ss(e[mnrs]?|t)?\b/g, '$1ß$2').replace(/([Rr]ei)ss(en|t\b|fest)/g, '$1ß$2').replace(/([Mm]ei)ssel/g, '$1ßel')
+    .replace(/mässig/g, 'mäßig').replace(/ermassen\b/g, 'ermaßen').replace(/\b([Aa])ss(en)?\b/g, '$1ß$2').replace(/\b((?:[Bb]e)?[Ss]a)ss(en)?\b/g, '$1ß$2')
+    .replace(/(\d)['’ ](\d{3})(?!\d)/g, '$1$2').replace(/(\d)\.(\d)/g, '$1,$2').replace(/(\d) m\b/g, '$1 Meter').replace(/(\d) km\b/g, '$1 Kilometer').replace(/(\d) cm\b/g, '$1 Zentimeter').replace(/(\d) kg\b/g, '$1 Kilogramm')
+    .replace(/\s*[−–]\s*(?=\d)/g, ' minus ').replace(/\s*\+\s*/g, ' plus ').replace(/\s*=\s*/g, ' gleich ').replace(/\s+/g, ' ').trim();
+}
+/* In Sätze teilen (nicht nach Zahlen wie «19. Jahrhundert»): so entstehen ruhige Pausen, und lange Texte brechen nicht mittendrin ab */
+function speechParts(plain){
+  const parts = []; let a = 0; const re = /[.!?…]+["”)]*\s+(?=[A-ZÄÖÜ])/g; let m;
+  while ((m = re.exec(plain))){ if (/\d$/.test(plain.slice(0, m.index))) continue; parts.push(plain.slice(a, m.index + m[0].length).trim()); a = m.index + m[0].length; }
+  if (a < plain.length) parts.push(plain.slice(a).trim());
+  return parts.filter(Boolean);
+}
+function stopSpeech(){ speechRun++; if (tonAudio){ try { tonAudio.pause(); } catch(e){} tonAudio = null; }
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch(e){} speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; }
+/* Vorlesen mit der aufgenommenen Stimme: eine Tondatei je Station in ton/mittelalter/. Fehlt sie oder lädt sie nicht, liest die Stimme des Geräts. */
+const TON = 'ton/mittelalter/'; let tonAudio = null;
+function readStation(id, text){
+  if (speaking){ stopSpeech(); return; }
+  const run = ++speechRun, a = new Audio(TON + id + '.mp3'); tonAudio = a; speaking = true; $('#btnRead').textContent = '⏹ Stopp';
+  const device = () => { if (run !== speechRun) return; tonAudio = null; speaking = false; speak(text); };
+  a.onended = () => { if (run === speechRun){ tonAudio = null; speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; } };
+  a.onerror = device;
+  const p = a.play(); if (p && p.catch) p.catch(device);
+}
 function speak(text){
   if (!window.speechSynthesis){ toast('Vorlesen geht auf diesem Gerät leider nicht.'); return; }
   if (speaking){ stopSpeech(); return; }
-  const u = new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g,'').replace(/[«»]/g,''));
-  u.lang = 'de-CH'; u.rate = 0.92;
-  const v = speechSynthesis.getVoices().find(v => /^de/i.test(v.lang)); if (v) u.voice = v;
-  u.onend = u.onerror = () => { speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; };
-  speechSynthesis.cancel(); speechSynthesis.speak(u); speaking = true; $('#btnRead').textContent = '⏹ Stopp';
+  const parts = speechParts(forSpeech(text)), v = germanVoice(), soft = !!v && /natural|neural|premium|enhanced|erweitert|siri|google/i.test(v.name), run = ++speechRun;
+  const done = () => { if (run === speechRun){ speaking = false; $('#btnRead').textContent = '🔊 Vorlesen'; } };
+  speechSynthesis.cancel();
+  parts.forEach((p, i) => { const u = new SpeechSynthesisUtterance(p);
+    u.lang = v ? v.lang : 'de-DE'; if (v) u.voice = v; u.rate = soft ? 0.96 : 0.9; u.pitch = soft ? 1 : 0.94; u.volume = 0.9;
+    if (i === parts.length - 1) u.onend = done;
+    u.onerror = e => { if (e.error !== 'interrupted' && e.error !== 'canceled') done(); };
+    speechSynthesis.speak(u); });
+  speaking = true; $('#btnRead').textContent = '⏹ Stopp';
 }
 
 /* ===================== UI ===================== */
@@ -6377,17 +6428,75 @@ function showVideo(st){ const v = $('#infoVideo'), vd = st.video; if (!v) return
   v.querySelector('button').addEventListener('click', () => { stopSpeech();
     v.innerHTML = '<div class="vid-frame"><iframe src="' + esc(vd.embed) + '" title="Film: ' + esc(vd.title) + '" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
       '<a class="vid-src" href="' + esc(vd.url) + '" target="_blank" rel="noopener noreferrer">Startet der Film nicht? Bei ' + esc(vd.source) + ' öffnen ↗</a>'; }); }
+/* ---- Bilder im Text: je Station [Datei, Absatz, Seite, Breite, Seitenverhältnis]. Die Bilder liegen verpackt in bilder/c und werden erst beim Öffnen einer Karte geholt ---- */
+const CLIPS = {
+  staende:[['staendepyramide',1,'r',230,0.742]],
+  koenig:[['koenig',0,'r',130,0.662]],
+  klerus:[['klerus',0,'r',110,0.448],['schule-moench',2,'l',170,0.804]],
+  adel:[['adeliger',0,'r',110,0.374],['hofdame',1,'l',110,0.373]],
+  dorf:[['bauer',0,'r',130,0.556]],
+  abgaben:[['girl-with-basket-of-goose-eggs',2,'r',130,0.624]],
+  frondienst:[['boy-with-scythe',1,'r',130,0.793]],
+  feld:[['sickle',1,'r',110,0.527],['bauernkind',2,'l',130,0.641]],
+  essen:[['brot',1,'l',230,2.067],['essen-arme',2,'r',170,1.084]],
+  bauernhaus:[['dorfhaus',0,'r',230,1.414]],
+  stadt:[['stadthaus',0,'r',230,1.297]],
+  markt:[['marktstand',1,'r',220,1.235],['geldbeutel',2,'l',230,1.5]],
+  rathaus:[['ausrufer',0,'r',130,0.715]],
+  handwerk:[['shoes',0,'r',230,1.888],['tonkrug',2,'l',170,0.802]],
+  weberin:[['woman-with-drop-spindle',1,'r',110,0.358]],
+  hygiene:[['ratte',1,'r',230,1.984]],
+  pest:[['ratte',2,'r',230,1.984]],
+  pestarzt:[['heilkraeuter',0,'l',170,1.118],['pestschnabel',1,'r',230,1.358]],
+  burg:[['aufbau-burg',1,'r',250,1.186]],
+  wehrgang:[['armbrust',2,'r',230,1.505]],
+  wachtturm:[['hellebarde',0,'r',110,0.331]],
+  palas:[['essen-reiche',2,'r',170,1.161]],
+  kemenate:[['steckenpferd',0,'r',110,0.535],['reichesmaedchen',2,'l',110,0.457]],
+  kapelle:[['kelch',1,'r',110,0.476]],
+  burghof:[['magd',0,'r',130,0.59]],
+  stall:[['girl-on-horse',0,'r',170,0.854],['boy-and-goat',2,'l',230,1.405]],
+  garten:[['thyme-thymus',1,'r',130,0.706],['heilkraeuter',2,'l',170,1.118]],
+  gaukler:[['hofnarr',1,'r',130,0.558],['laute',2,'l',130,0.594]],
+  ritter:[['schild',1,'l',130,0.788],['ritterruestung',2,'r',110,0.404]],
+  page:[['reicherjunge-page',0,'r',170,0.907]],
+  knappe:[['knappe',1,'r',170,0.948]],
+  schwertleite:[['schwert',0,'r',110,0.443],['kreuzzuege',2,'l',230,1.292]],
+  turnier:[['zelt',0,'l',170,1.063],['fanfare',1,'r',230,1.685]],
+  tjost:[['ritterturnier',0,'r',230,1.31]],
+  motte:[['motte',2,'r',230,1.419]]
+};
+const CLIP_KEY = [90, 101, 105, 116, 114, 101, 105, 115, 101, 45, 76, 101, 114, 110, 119, 101, 108, 116], CLIP_URL = {};
+function clipURL(name){
+  if (!CLIP_URL[name]) CLIP_URL[name] = new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', 'bilder/c/' + name + '.dat'); x.responseType = 'arraybuffer';
+    x.onload = () => { const b = new Uint8Array(x.response || 0); if ((x.status && x.status !== 200) || !b.length){ rej(); return; }
+      for (let i = 0; i < b.length; i++) b[i] ^= CLIP_KEY[i % CLIP_KEY.length]; res(URL.createObjectURL(new Blob([b], { type:'image/webp' }))); };
+    x.onerror = rej; x.send(); });
+  return CLIP_URL[name];
+}
+function clipHTML(c){ return '<span class="clip ' + c[2] + '" data-c="' + c[0] + '" data-a="' + c[4] + '" aria-hidden="true" style="width:min(' + c[3] + 'px,' + (c[3] > 200 ? 46 : c[4] >= 0.8 ? 38 : 30) + '%);aspect-ratio:' + c[4] + '"></span>'; }
+function showClips(){
+  const old = !(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+  document.querySelectorAll('#infoText .clip').forEach(el => { const name = el.dataset.c;
+    clipURL(name).then(u => { el.style.backgroundImage = 'url("' + u + '")'; }, () => { delete CLIP_URL[name]; el.remove(); });
+    if (old) requestAnimationFrame(() => { el.style.height = (el.offsetWidth/(+el.dataset.a || 1)) + 'px'; }); });
+}
+for (const ev of ['contextmenu', 'dragstart']) $('#infoText').addEventListener(ev, e => { if (e.target.closest && e.target.closest('.clip')) e.preventDefault(); });
+/* Bilder der Infokarten lassen sich nicht mit Rechtsklick speichern, herausziehen oder (am Tablet) lange antippen */
+for (const ev of ['contextmenu', 'dragstart', 'selectstart', 'copy']) $('#infoArt').addEventListener(ev, e => e.preventDefault());
 function openStation(id){
   const st = BY_ID[id]; const isNew = !visited.has(id);
   if (isNew){ visited.add(id); saveVisited(); updateProgress(); chime(); }
   const card = $('#infoCard'); card.className = 'card cat-' + st.cat;
   $('#infoIcon').textContent = st.icon; $('#infoCat').textContent = CATS[st.cat].name; $('#infoTitle').textContent = st.title;
-  $('#infoText').innerHTML = st.text.map(p => '<p>' + p + '</p>').join('');
+  const clips = CLIPS[id] || [];
+  $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   showVideo(st);
-  $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
-  const art = $('#infoArt'), ca = typeof CLIPART !== 'undefined' ? CLIPART[id] : null;
-  if (ca){ art.innerHTML = typeof ca === 'function' ? ca() : '<img src="' + ca + '" alt="">'; art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
+  $('#btnRead').onclick = () => readStation(id, st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
+  const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
+  if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
+    art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
   $('#btnTry').classList.toggle('hidden', id !== 'tjost');
   openModal('info');
 }
@@ -6786,12 +6895,15 @@ function standSpot(h){
     return [c.x, c.z]; }
   return [h.x + 3, h.z];
 }
+/* Blick nach dem Sprung: leicht nach unten; bei hohen Bauwerken (Zeichen weit über dem Kopf) nach oben */
+function lookUp(h, x, z){ let f = groundH(x, z); if (typeof onDeck === 'function'){ const d = onDeck(x, z); if (d !== null && d !== undefined) f = Math.max(f, d); }
+  return Math.max(-0.08, Math.min(0.42, Math.atan2(h.baseY - 4.2 - f, Math.hypot(x - h.x, z - h.z)))); }
 let traveling = false;
 function travelTo(id){
   if (traveling) return; const h = hotspots[id]; if (!h) return; traveling = true;
   closeModal(); const fd = $('#fade'); fd.classList.add('on'); keys = {};
   setTimeout(() => {
-    const sp = standSpot(h), [x, z] = sp; player.x = x; player.z = z; if (typeof LV !== 'undefined') LV.y = sp[2] !== undefined ? sp[2] : null; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = -0.08; player.camY = 0;
+    const sp = standSpot(h), [x, z] = sp; player.x = x; player.z = z; if (typeof LV !== 'undefined') LV.y = sp[2] !== undefined ? sp[2] : null; player.vx = player.vz = 0; player.yaw = Math.atan2(x - h.x, z - h.z); player.pitch = lookUp(h, x, z); player.camY = 0;
     if (typeof trans !== 'undefined') trans = null;
     setTimeout(() => { fd.classList.remove('on'); traveling = false; toast('📍 ' + (visited.has(id) ? BY_ID[id].title : 'Hier gibt es etwas zu entdecken!')); }, 260);
   }, 400);
