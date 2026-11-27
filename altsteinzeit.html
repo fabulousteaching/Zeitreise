@@ -103,6 +103,9 @@ kbd{font-family:var(--font-head);font-weight:600;min-width:2em;text-align:center
 .heat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e4a428,#e0562a)}
 .game-msg{font-size:1.08rem;line-height:1.5;min-height:3.2em;margin:6px 0 0}
 .info-text p{margin:0 0 .75em;max-width:62ch}
+.info-text{display:flow-root}
+.info-text .clip{display:block;float:right;clear:both;margin:.3em 0 .5em 16px;background:center/contain no-repeat;border-radius:6px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-text .clip.l{float:left;margin:.3em 16px .5em 0}
 .fact{background:var(--fact);border-left:6px solid var(--fact-line);padding:12px 16px;border-radius:4px;font-size:1.08rem;line-height:1.55}
 .fact-h{font-family:var(--font-head);font-weight:600;margin-bottom:2px}
 .cat-fluss{--cat:#2f6f8a} .cat-jagd{--cat:var(--c-jagd)} .cat-wohnen{--cat:var(--c-wohnen)} .cat-werke{--cat:var(--c-werke)}
@@ -3826,6 +3829,35 @@ function closeModal(silent){
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal()));
 document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m && m.id !== 'start') closeModal(); }));
 
+/* ---- Bilder im Text: je Station [Datei, Absatz, Seite, Breite, Seitenverhältnis]. Die Bilder liegen verpackt in bilder/c und werden erst beim Öffnen einer Karte geholt ---- */
+const CLIPS = {
+  aelteste:[['z1-feuer',0,'r',170,1.015],['z1-kleidung-2',2,'l',110,0.515]],
+  haut:[['z1-kleidung-1',0,'r',110,0.428]],
+  jaeger:[['z1-kleidung-2',0,'r',110,0.515]],
+  hoehle:[['z1-hoehlenmalerei',1,'r',230,1.291]],
+  zelt:[['z1-behausung',1,'r',170,1.23]],
+  feuer:[['z1-feuer',0,'r',170,1.015]],
+  steinwerkzeug:[['z1-axt',2,'r',170,0.905]],
+  naehen:[['z1-kleidung-1',0,'r',110,0.428]],
+  malerei:[['z1-hoehlenmalerei',0,'r',230,1.291]],
+  uferfeuer:[['z1-feuer',0,'r',170,1.015]]
+};
+const CLIP_KEY = [90, 101, 105, 116, 114, 101, 105, 115, 101, 45, 76, 101, 114, 110, 119, 101, 108, 116], CLIP_URL = {};
+function clipURL(name){
+  if (!CLIP_URL[name]) CLIP_URL[name] = new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', 'bilder/c/' + name + '.dat'); x.responseType = 'arraybuffer';
+    x.onload = () => { const b = new Uint8Array(x.response || 0); if ((x.status && x.status !== 200) || !b.length){ rej(); return; }
+      for (let i = 0; i < b.length; i++) b[i] ^= CLIP_KEY[i % CLIP_KEY.length]; res(URL.createObjectURL(new Blob([b], { type:'image/webp' }))); };
+    x.onerror = rej; x.send(); });
+  return CLIP_URL[name];
+}
+function clipHTML(c){ return '<span class="clip ' + c[2] + '" data-c="' + c[0] + '" data-a="' + c[4] + '" aria-hidden="true" style="width:min(' + c[3] + 'px,' + (c[3] > 200 ? 46 : c[4] >= 0.8 ? 38 : 30) + '%);aspect-ratio:' + c[4] + '"></span>'; }
+function showClips(){
+  const old = !(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+  document.querySelectorAll('#infoText .clip').forEach(el => { const name = el.dataset.c;
+    clipURL(name).then(u => { el.style.backgroundImage = 'url("' + u + '")'; }, () => { delete CLIP_URL[name]; el.remove(); });
+    if (old) requestAnimationFrame(() => { el.style.height = (el.offsetWidth/(+el.dataset.a || 1)) + 'px'; }); });
+}
+for (const ev of ['contextmenu', 'dragstart']) $('#infoText').addEventListener(ev, e => { if (e.target.closest && e.target.closest('.clip')) e.preventDefault(); });
 /* Bilder der Infokarten lassen sich nicht mit Rechtsklick speichern, herausziehen oder (am Tablet) lange antippen */
 for (const ev of ['contextmenu', 'dragstart', 'selectstart', 'copy']) $('#infoArt').addEventListener(ev, e => e.preventDefault());
 function openStation(id){
@@ -3833,11 +3865,12 @@ function openStation(id){
   if (isNew){ visited.add(id); saveVisited(); updateProgress(); chime(); }
   const card = $('#infoCard'); card.className = 'card cat-' + st.cat;
   $('#infoIcon').textContent = st.icon; $('#infoCat').textContent = CATS[st.cat].name; $('#infoTitle').textContent = st.title;
-  $('#infoText').innerHTML = st.text.map(p => '<p>' + p + '</p>').join('');
+  const clips = CLIPS[id] || [];
+  $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   $('#btnFlute').classList.toggle('hidden', id !== 'floete');
   $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
-  const art = $('#infoArt'), ca = typeof CLIPART !== 'undefined' ? CLIPART[id] : null;
+  const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
   if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
     art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
   $('#btnTry').classList.toggle('hidden', id !== 'feuerbogen');

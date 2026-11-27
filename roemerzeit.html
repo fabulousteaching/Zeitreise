@@ -103,6 +103,9 @@ kbd{font-family:var(--font-head);font-weight:600;min-width:2em;text-align:center
 .heat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3a7ab0,#7ac8e8)}
 .game-msg{font-size:1.08rem;line-height:1.5;min-height:4.6em;margin:6px 0 0}
 .info-text p{margin:0 0 .75em;max-width:62ch}
+.info-text{display:flow-root}
+.info-text .clip{display:block;float:right;clear:both;margin:.3em 0 .5em 16px;background:center/contain no-repeat;border-radius:6px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-text .clip.l{float:left;margin:.3em 16px .5em 0}
 .fact{background:var(--fact);border-left:6px solid var(--fact-line);padding:12px 16px;border-radius:4px;font-size:1.08rem;line-height:1.55}
 .fact-h{font-family:var(--font-head);font-weight:600;margin-bottom:2px}
 .info-video{margin:2px 0 16px}
@@ -6490,6 +6493,51 @@ function showVideo(st){ const v = $('#infoVideo'), vd = st.video; if (!v) return
   v.querySelector('button').addEventListener('click', () => { stopSpeech();
     v.innerHTML = '<div class="vid-frame"><iframe src="' + esc(vd.embed) + '" title="Film: ' + esc(vd.title) + '" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
       '<a class="vid-src" href="' + esc(vd.url) + '" target="_blank" rel="noopener noreferrer">Startet der Film nicht? Bei ' + esc(vd.source) + ' öffnen ↗</a>'; }); }
+/* ---- Bilder im Text: je Station [Datei, Absatz, Seite, Breite, Seitenverhältnis]. Die Bilder liegen verpackt in bilder/c und werden erst beim Öffnen einer Karte geholt ---- */
+const CLIPS = {
+  romulus:[['z5-romulus',2,'r',230,1.565]],
+  gruendung:[['capitoline-wolf',0,'r',230,1.322],['z4-pflug',2,'l',230,1.875]],
+  reich:[['z5-roemisches-reich',1,'r',240,1.109]],
+  senat:[['spqr',0,'r',230,1.728],['patrician-man',1,'l',110,0.422]],
+  caesar:[['caesar',0,'r',110,0.429],['emperor',2,'l',110,0.449]],
+  legionaer:[['z5-legionaer',0,'r',110,0.406],['roman-legionnaire-with-marching-pack',2,'l',130,0.648]],
+  ausruestung:[['metal-jacket',0,'r',170,1.063],['roman-legionary-wearing-balteus',1,'l',110,0.516],['roman-sandal',2,'r',230,1.583]],
+  schildkroete:[['soldiers-in-tortoise-formation',1,'r',230,1.325],['z5-schildkroetenformation',2,'l',230,2.248]],
+  legion:[['centurion',1,'r',110,0.363],['roman-army-standard',2,'l',110,0.34]],
+  toga:[['junge-arm',0,'r',110,0.397],['junge-reich',1,'l',110,0.387]],
+  stola:[['patrician-woman',0,'r',110,0.372],['roman-sandal',2,'l',230,1.583]],
+  familie:[['wedding',1,'r',130,0.729],['domus',2,'l',230,1.486]],
+  schule:[['teacher-and-student',0,'r',170,0.986],['wax-tablet-and-bone-stylus',1,'l',230,1.689]],
+  abakus:[['z5-abakus',0,'r',230,1.515]],
+  berufe:[['roman-musician-playing-a-lyra',1,'r',110,0.508],['taberna-background',2,'l',230,1.29]],
+  kueche:[['culina-kitchen-background',0,'r',230,1.292],['amphora-1',1,'l',130,0.727],['olivenoel',2,'r',130,0.773]],
+  latein:[['junge-schriftrolle',0,'r',110,0.497]],
+  strasse:[['element-2rom',0,'r',240,1.501],['man-using-a-groma-road-building',1,'l',170,0.804]],
+  tempel:[['pantheon',1,'r',170,1.243],['minerva',2,'l',130,0.586]],
+  triumphbogen:[['triunphal-arch',0,'r',170,0.938],['streitwagen',1,'l',230,1.339]],
+  insula:[['insula',0,'r',170,1.098]],
+  amphitheater:[['colosseum',0,'r',230,1.365],['z5-gladiator',1,'l',130,0.684]],
+  aquaedukt:[['z5-aequadukt',0,'r',230,1.752],['roman-aqueduct',2,'l',230,1.618]],
+  thermen:[['thermae-communal-bath-background',1,'r',230,1.293],['man-using-a-strigil',2,'l',130,0.686]],
+  hypokaustum:[['z5-therme',1,'r',170,0.942]],
+  latrine:[['public-latrines-in-ancient-rome-background',1,'r',230,1.3]]
+};
+const CLIP_KEY = [90, 101, 105, 116, 114, 101, 105, 115, 101, 45, 76, 101, 114, 110, 119, 101, 108, 116], CLIP_URL = {};
+function clipURL(name){
+  if (!CLIP_URL[name]) CLIP_URL[name] = new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', 'bilder/c/' + name + '.dat'); x.responseType = 'arraybuffer';
+    x.onload = () => { const b = new Uint8Array(x.response || 0); if ((x.status && x.status !== 200) || !b.length){ rej(); return; }
+      for (let i = 0; i < b.length; i++) b[i] ^= CLIP_KEY[i % CLIP_KEY.length]; res(URL.createObjectURL(new Blob([b], { type:'image/webp' }))); };
+    x.onerror = rej; x.send(); });
+  return CLIP_URL[name];
+}
+function clipHTML(c){ return '<span class="clip ' + c[2] + '" data-c="' + c[0] + '" data-a="' + c[4] + '" aria-hidden="true" style="width:min(' + c[3] + 'px,' + (c[3] > 200 ? 46 : c[4] >= 0.8 ? 38 : 30) + '%);aspect-ratio:' + c[4] + '"></span>'; }
+function showClips(){
+  const old = !(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+  document.querySelectorAll('#infoText .clip').forEach(el => { const name = el.dataset.c;
+    clipURL(name).then(u => { el.style.backgroundImage = 'url("' + u + '")'; }, () => { delete CLIP_URL[name]; el.remove(); });
+    if (old) requestAnimationFrame(() => { el.style.height = (el.offsetWidth/(+el.dataset.a || 1)) + 'px'; }); });
+}
+for (const ev of ['contextmenu', 'dragstart']) $('#infoText').addEventListener(ev, e => { if (e.target.closest && e.target.closest('.clip')) e.preventDefault(); });
 /* Bilder der Infokarten lassen sich nicht mit Rechtsklick speichern, herausziehen oder (am Tablet) lange antippen */
 for (const ev of ['contextmenu', 'dragstart', 'selectstart', 'copy']) $('#infoArt').addEventListener(ev, e => e.preventDefault());
 function openStation(id){
@@ -6497,11 +6545,12 @@ function openStation(id){
   if (isNew){ visited.add(id); saveVisited(); updateProgress(); chime(); }
   const card = $('#infoCard'); card.className = 'card cat-' + st.cat;
   $('#infoIcon').textContent = st.icon; $('#infoCat').textContent = CATS[st.cat].name; $('#infoTitle').textContent = st.title;
-  $('#infoText').innerHTML = st.text.map(p => '<p>' + p + '</p>').join('');
+  const clips = CLIPS[id] || [];
+  $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   showVideo(st);
   $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
-  const art = $('#infoArt'), ca = typeof CLIPART !== 'undefined' ? CLIPART[id] : null;
+  const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
   if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
     art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
   $('#btnTry').classList.toggle('hidden', id !== 'aquaedukt');

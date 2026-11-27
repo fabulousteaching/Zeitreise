@@ -103,6 +103,9 @@ kbd{font-family:var(--font-head);font-weight:600;min-width:2em;text-align:center
 .heat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c040,#a8242a)}
 .game-msg{font-size:1.08rem;line-height:1.5;min-height:4.6em;margin:6px 0 0}
 .info-text p{margin:0 0 .75em;max-width:62ch}
+.info-text{display:flow-root}
+.info-text .clip{display:block;float:right;clear:both;margin:.3em 0 .5em 16px;background:center/contain no-repeat;border-radius:6px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.info-text .clip.l{float:left;margin:.3em 16px .5em 0}
 .fact{background:var(--fact);border-left:6px solid var(--fact-line);padding:12px 16px;border-radius:4px;font-size:1.08rem;line-height:1.55}
 .fact-h{font-family:var(--font-head);font-weight:600;margin-bottom:2px}
 .info-video{margin:2px 0 16px}
@@ -6414,6 +6417,60 @@ function showVideo(st){ const v = $('#infoVideo'), vd = st.video; if (!v) return
   v.querySelector('button').addEventListener('click', () => { stopSpeech();
     v.innerHTML = '<div class="vid-frame"><iframe src="' + esc(vd.embed) + '" title="Film: ' + esc(vd.title) + '" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
       '<a class="vid-src" href="' + esc(vd.url) + '" target="_blank" rel="noopener noreferrer">Startet der Film nicht? Bei ' + esc(vd.source) + ' öffnen ↗</a>'; }); }
+/* ---- Bilder im Text: je Station [Datei, Absatz, Seite, Breite, Seitenverhältnis]. Die Bilder liegen verpackt in bilder/c und werden erst beim Öffnen einer Karte geholt ---- */
+const CLIPS = {
+  staende:[['staendepyramide',1,'r',230,0.742]],
+  koenig:[['koenig',0,'r',130,0.662]],
+  klerus:[['klerus',0,'r',110,0.448],['schule-moench',2,'l',170,0.804]],
+  adel:[['adeliger',0,'r',110,0.374],['hofdame',1,'l',110,0.373]],
+  dorf:[['bauer',0,'r',130,0.556]],
+  abgaben:[['girl-with-basket-of-goose-eggs',2,'r',130,0.624]],
+  frondienst:[['boy-with-scythe',1,'r',130,0.793]],
+  feld:[['sickle',1,'r',110,0.527],['bauernkind',2,'l',130,0.641]],
+  essen:[['brot',1,'l',230,2.067],['essen-arme',2,'r',170,1.084]],
+  bauernhaus:[['dorfhaus',0,'r',230,1.414]],
+  stadt:[['stadthaus',0,'r',230,1.297]],
+  markt:[['marktstand',1,'r',220,1.235],['geldbeutel',2,'l',230,1.5]],
+  rathaus:[['ausrufer',0,'r',130,0.715]],
+  handwerk:[['shoes',0,'r',230,1.888],['tonkrug',2,'l',170,0.802]],
+  weberin:[['woman-with-drop-spindle',1,'r',110,0.358]],
+  hygiene:[['ratte',1,'r',230,1.984]],
+  pest:[['ratte',2,'r',230,1.984]],
+  pestarzt:[['heilkraeuter',0,'l',170,1.118],['pestschnabel',1,'r',230,1.358]],
+  burg:[['aufbau-burg',1,'r',250,1.186]],
+  wehrgang:[['armbrust',2,'r',230,1.505]],
+  wachtturm:[['hellebarde',0,'r',110,0.331]],
+  palas:[['essen-reiche',2,'r',170,1.161]],
+  kemenate:[['steckenpferd',0,'r',110,0.535],['reichesmaedchen',2,'l',110,0.457]],
+  kapelle:[['kelch',1,'r',110,0.476]],
+  burghof:[['magd',0,'r',130,0.59]],
+  stall:[['girl-on-horse',0,'r',170,0.854],['boy-and-goat',2,'l',230,1.405]],
+  garten:[['thyme-thymus',1,'r',130,0.706],['heilkraeuter',2,'l',170,1.118]],
+  gaukler:[['hofnarr',1,'r',130,0.558],['laute',2,'l',130,0.594]],
+  ritter:[['schild',1,'l',130,0.788],['ritterruestung',2,'r',110,0.404]],
+  page:[['reicherjunge-page',0,'r',170,0.907]],
+  knappe:[['knappe',1,'r',170,0.948]],
+  schwertleite:[['schwert',0,'r',110,0.443],['kreuzzuege',2,'l',230,1.292]],
+  turnier:[['zelt',0,'l',170,1.063],['fanfare',1,'r',230,1.685]],
+  tjost:[['ritterturnier',0,'r',230,1.31]],
+  motte:[['motte',2,'r',230,1.419]]
+};
+const CLIP_KEY = [90, 101, 105, 116, 114, 101, 105, 115, 101, 45, 76, 101, 114, 110, 119, 101, 108, 116], CLIP_URL = {};
+function clipURL(name){
+  if (!CLIP_URL[name]) CLIP_URL[name] = new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', 'bilder/c/' + name + '.dat'); x.responseType = 'arraybuffer';
+    x.onload = () => { const b = new Uint8Array(x.response || 0); if ((x.status && x.status !== 200) || !b.length){ rej(); return; }
+      for (let i = 0; i < b.length; i++) b[i] ^= CLIP_KEY[i % CLIP_KEY.length]; res(URL.createObjectURL(new Blob([b], { type:'image/webp' }))); };
+    x.onerror = rej; x.send(); });
+  return CLIP_URL[name];
+}
+function clipHTML(c){ return '<span class="clip ' + c[2] + '" data-c="' + c[0] + '" data-a="' + c[4] + '" aria-hidden="true" style="width:min(' + c[3] + 'px,' + (c[3] > 200 ? 46 : c[4] >= 0.8 ? 38 : 30) + '%);aspect-ratio:' + c[4] + '"></span>'; }
+function showClips(){
+  const old = !(window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1'));
+  document.querySelectorAll('#infoText .clip').forEach(el => { const name = el.dataset.c;
+    clipURL(name).then(u => { el.style.backgroundImage = 'url("' + u + '")'; }, () => { delete CLIP_URL[name]; el.remove(); });
+    if (old) requestAnimationFrame(() => { el.style.height = (el.offsetWidth/(+el.dataset.a || 1)) + 'px'; }); });
+}
+for (const ev of ['contextmenu', 'dragstart']) $('#infoText').addEventListener(ev, e => { if (e.target.closest && e.target.closest('.clip')) e.preventDefault(); });
 /* Bilder der Infokarten lassen sich nicht mit Rechtsklick speichern, herausziehen oder (am Tablet) lange antippen */
 for (const ev of ['contextmenu', 'dragstart', 'selectstart', 'copy']) $('#infoArt').addEventListener(ev, e => e.preventDefault());
 function openStation(id){
@@ -6421,11 +6478,12 @@ function openStation(id){
   if (isNew){ visited.add(id); saveVisited(); updateProgress(); chime(); }
   const card = $('#infoCard'); card.className = 'card cat-' + st.cat;
   $('#infoIcon').textContent = st.icon; $('#infoCat').textContent = CATS[st.cat].name; $('#infoTitle').textContent = st.title;
-  $('#infoText').innerHTML = st.text.map(p => '<p>' + p + '</p>').join('');
+  const clips = CLIPS[id] || [];
+  $('#infoText').innerHTML = st.text.map((p, i) => '<p>' + clips.filter(c => c[1] === i).map(clipHTML).join('') + p + '</p>').join(''); showClips();
   $('#infoFact').innerHTML = st.fact; $('#infoNew').classList.toggle('hidden', !isNew);
   showVideo(st);
   $('#btnRead').onclick = () => speak(st.title + '. ' + st.text.join(' ') + ' Wusstest du? ' + st.fact);
-  const art = $('#infoArt'), ca = typeof CLIPART !== 'undefined' ? CLIPART[id] : null;
+  const art = $('#infoArt'), ca = clips.length ? null : typeof CLIPART !== 'undefined' ? CLIPART[id] : null;   /* mit Bildern im Text braucht es kein Bild oben */
   if (ca){ if (typeof ca === 'function') art.innerHTML = ca(); else { art.innerHTML = '<div class="art-img"></div>'; art.firstChild.style.backgroundImage = 'url("' + ca + '")'; }
     art.setAttribute('aria-label', 'Bild: ' + st.title); art.classList.remove('hidden'); } else { art.innerHTML = ''; art.classList.add('hidden'); }
   $('#btnTry').classList.toggle('hidden', id !== 'tjost');
